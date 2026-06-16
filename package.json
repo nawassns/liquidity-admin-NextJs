@@ -36,12 +36,12 @@
   "dependencies": {
     "@hookform/resolvers": "3.3.4",
     "@mantine/core": "^7.11.1",
-    "@mantine/dates": "7.11.1",
+    "@mantine/dates": "^7.11.1",
     "@mantine/dropzone": "^7.11.1",
-    "@mantine/form": "7.11.1",
+    "@mantine/form": "^7.11.1",
     "@mantine/hooks": "^7.11.1",
-    "@mantine/modals": "7.11.1",
-    "@mantine/notifications": "7.11.1",
+    "@mantine/modals": "^7.11.1",
+    "@mantine/notifications": "^7.11.1",
     "@mantine/nprogress": "^7.11.1",
     "@tabler/icons-react": "^2.47.0",
     "@tanstack/react-query": "^5.100.14",
@@ -88,6 +88,6 @@
     "standard-version": "9.5.0",
     "storybook": "^7.6.20",
     "storybook-dark-mode": "^3.0.3",
-    "typescript": "^6.0.3"
+    "typescript": "^5.4.5"
   }
 }
