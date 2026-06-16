@@ -38,6 +38,9 @@ async function request<T = any>(
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const url = `${API_URL}${path}`;
+
+  console.log("Calling URL:", url);
+
   const res = await fetch(url, { ...options, headers });
 
   let json: ApiResponse<T>;
