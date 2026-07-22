@@ -13,7 +13,6 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { DateInput } from "@mantine/dates";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { IconEdit, IconPlus, IconTrash } from "@tabler/icons-react";
@@ -63,6 +62,12 @@ export default function PaymentsPage() {
       notes: "",
       status: "Completed",
     },
+    validate: {
+      outlet: (value) => (value ? null : "Please select an outlet"),
+      amount: (value) =>
+        Number(value) > 0 ? null : "Amount must be greater than 0",
+      paymentDate: (value) => (value ? null : "Payment date is required"),
+    },
   });
 
   const openCreate = () => {
@@ -87,23 +92,48 @@ export default function PaymentsPage() {
 
   const saveMutation = useMutation({
     mutationFn: async (values: typeof form.values) => {
-      if (editing) return api.put(`/payments/${editing._id}`, values);
-      return api.post(`/payments`, values);
+      const payload = { ...values, amount: Number(values.amount) };
+      if (editing) return api.put(`/payments/${editing._id}`, payload);
+      return api.post(`/payments`, payload);
     },
     onSuccess: (res) => {
       if (!res.success) {
-        notifications.show({ color: "red", message: res.message || "Failed" });
+        notifications.show({
+          color: "red",
+          title: res.message || "Payment could not be saved",
+          message: res.error || "Please check the payment details.",
+        });
         return;
       }
-      notifications.show({ color: "green", message: "Saved" });
+      notifications.show({
+        color: "green",
+        message: res.message || "Payment saved successfully",
+      });
       setModalOpen(false);
+      setEditing(null);
+      form.reset();
       qc.invalidateQueries({ queryKey: ["payments"] });
+    },
+    onError: (error) => {
+      notifications.show({
+        color: "red",
+        title: "Could not reach the payment API",
+        message: error instanceof Error ? error.message : "Network request failed",
+      });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => api.delete(`/payments/${id}`),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (!res.success) {
+        notifications.show({
+          color: "red",
+          title: res.message || "Payment was not deleted",
+          message: res.error || "Please try again.",
+        });
+        return;
+      }
       notifications.show({ color: "green", message: "Deleted" });
       qc.invalidateQueries({ queryKey: ["payments"] });
     },
@@ -123,7 +153,7 @@ export default function PaymentsPage() {
             placeholder="All Status"
             value={statusFilter}
             onChange={setStatusFilter}
-            data={["", "Pending", "Completed", "Failed"]}
+            data={["Pending", "Completed", "Failed"]}
             clearable
             w={200}
           />
@@ -180,7 +210,16 @@ export default function PaymentsPage() {
         )}
       </Card>
 
-      <Modal opened={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Edit Payment" : "Add Payment"} centered>
+      <Modal
+        opened={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setEditing(null);
+          form.reset();
+        }}
+        title={editing ? "Edit Payment" : "Add Payment"}
+        centered
+      >
         <form onSubmit={form.onSubmit((v) => saveMutation.mutate(v))}>
           <Stack>
             <Select
@@ -190,7 +229,12 @@ export default function PaymentsPage() {
               required
               {...form.getInputProps("outlet")}
             />
-            <NumberInput label="Amount" required {...form.getInputProps("amount")} />
+            <NumberInput
+              label="Amount"
+              min={1}
+              required
+              {...form.getInputProps("amount")}
+            />
             <TextInput
               label="Payment Date"
               type="date"
