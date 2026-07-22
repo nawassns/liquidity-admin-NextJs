@@ -9,7 +9,6 @@ import {
   Pagination,
   Select,
   Stack,
-  Tabs,
   Textarea,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
@@ -50,27 +49,54 @@ export default function WalletPage() {
   });
 
   const form = useForm({
-    initialValues: { userId: "", amount: 0, description: "", type: "Adjustment" },
+    initialValues: { userId: "", amount: 0, description: "" },
+    validate: {
+      userId: (value) => (value ? null : "Please select a user"),
+      amount: (value) =>
+        Number(value) > 0 ? null : "Amount must be greater than 0",
+    },
   });
 
   const mutation = useMutation({
-    mutationFn: async (values: typeof form.values) =>
-      api.post(`/wallet/${modalOpen}`, values),
+    mutationFn: async (values: typeof form.values) => {
+      if (!modalOpen) return { success: false, message: "Select credit or debit" };
+      return api.post(`/wallet/${modalOpen}`, {
+        ...values,
+        amount: Number(values.amount),
+      });
+    },
     onSuccess: (res) => {
       if (!res.success) {
-        notifications.show({ color: "red", message: res.message || "Failed" });
+        notifications.show({
+          color: "red",
+          title: res.message || "Wallet update failed",
+          message: res.error || "Please check the selected user and amount.",
+        });
         return;
       }
-      notifications.show({ color: "green", message: "Done" });
+      notifications.show({
+        color: "green",
+        message: res.message || "Wallet balance updated successfully",
+      });
       setModalOpen(null);
+      form.reset();
       qc.invalidateQueries({ queryKey: ["wallet-tx"] });
+      qc.invalidateQueries({ queryKey: ["users-list-w"] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (error) => {
+      notifications.show({
+        color: "red",
+        title: "Could not reach the wallet API",
+        message: error instanceof Error ? error.message : "Network request failed",
+      });
     },
   });
 
   const userOptions =
     ((usersQ.data?.data as any[]) || []).map((u) => ({
       value: u._id,
-      label: `${u.name} (${u.email || u.mobile || u._id.slice(-6)})`,
+      label: `${u.name} (${u.email || u.mobile || u._id.slice(-6)}) — Balance ₹${Number(u.walletBalance || 0).toLocaleString()}`,
     })) || [];
 
   return (
@@ -81,7 +107,7 @@ export default function WalletPage() {
             placeholder="All Types"
             value={typeFilter}
             onChange={setTypeFilter}
-            data={["", "Credit", "Debit", "Order", "Refund", "Promotion", "Adjustment"]}
+            data={["Credit", "Debit"]}
             clearable
             w={200}
           />
@@ -91,7 +117,6 @@ export default function WalletPage() {
               color="green"
               onClick={() => {
                 form.reset();
-                form.setFieldValue("type", "Promotion");
                 setModalOpen("credit");
               }}
               data-testid="wallet-credit-btn"
@@ -104,7 +129,6 @@ export default function WalletPage() {
               variant="light"
               onClick={() => {
                 form.reset();
-                form.setFieldValue("type", "Adjustment");
                 setModalOpen("debit");
               }}
               data-testid="wallet-debit-btn"
@@ -144,7 +168,10 @@ export default function WalletPage() {
 
       <Modal
         opened={!!modalOpen}
-        onClose={() => setModalOpen(null)}
+        onClose={() => {
+          setModalOpen(null);
+          form.reset();
+        }}
         title={modalOpen === "credit" ? "Credit Wallet" : "Debit Wallet"}
         centered
       >
@@ -162,11 +189,6 @@ export default function WalletPage() {
               min={1}
               required
               {...form.getInputProps("amount")}
-            />
-            <Select
-              label="Type"
-              data={["Credit", "Debit", "Refund", "Promotion", "Adjustment"]}
-              {...form.getInputProps("type")}
             />
             <Textarea label="Description" {...form.getInputProps("description")} />
             <Button type="submit" loading={mutation.isPending}>
